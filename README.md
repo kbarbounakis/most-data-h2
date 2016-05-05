@@ -1,5 +1,5 @@
-# most-data-mysql
-Most Web Framework H2 Adapter
+# most-data-h2
+Most Web Framework H2 Data Adapter
 ##Install
 $ npm install most-data-h2
 ##Usage
@@ -14,11 +14,12 @@ Register H2 adapter on app.json as follows:
         ...
         { "name":"development", "invariantName":"h2", "default":true,
             "options": {
-              "host":"localhost",
-              "user":"user",
-              "password":"password",
-              "database":"test"
-            }
+               "url": "jdbc:h2:~/test;AUTO_SERVER=true;AUTO_RECONNECT=true",
+               "properties": {
+                   "user" : "sa",
+                   "password": ""
+               }
+           }
         }
         ...
     ]
