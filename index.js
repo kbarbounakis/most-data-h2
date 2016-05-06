@@ -829,11 +829,25 @@ H2Formatter.prototype.escapeName = function(name) {
 
 H2Formatter.prototype.escape = function(value,unquoted)
 {
-    if (typeof value === 'boolean') { return value ? '1' : '0'; }
-    if (value instanceof Date) {
-        return this.escapeDate(value);
+    if (value==null || typeof value==='undefined')
+        return qry.escape(null);
+
+    if(typeof value==='string')
+        return '\'' + value.replace(/'/g, "''") + '\'';
+
+    if (typeof value==='boolean')
+        return value ? 1 : 0;
+    if (typeof value === 'object')
+    {
+        if (value instanceof Date)
+            return this.escapeDate(value);
+        if (value.hasOwnProperty('$name'))
+            return this.escapeName(value.$name);
     }
-    return H2Formatter.super_.prototype.escape.call(this, value, unquoted);
+    if (unquoted)
+        return value.valueOf();
+    else
+        return qry.escape(value);
 };
 
 /**
@@ -841,18 +855,16 @@ H2Formatter.prototype.escape = function(value,unquoted)
  * @returns {string}
  */
 H2Formatter.prototype.escapeDate = function(val) {
-    var year   = val.getFullYear();
-    var month  = zeroPad(val.getMonth() + 1, 2);
-    var day    = zeroPad(val.getDate(), 2);
-    var hour   = zeroPad(val.getHours(), 2);
-    var minute = zeroPad(val.getMinutes(), 2);
-    var second = zeroPad(val.getSeconds(), 2);
-    //var millisecond = zeroPad(val.getMilliseconds(), 3);
-    //format timezone
-    var offset = val.getTimezoneOffset(),
-        timezone = (offset<=0 ? '+' : '-') + zeroPad(-Math.floor(offset/60),2) + ':' + zeroPad(offset%60,2);
+
+    var val_ = new Date(val.valueOf() + val.getTimezoneOffset() * 60000);
+    var year   = val_.getFullYear();
+    var month  = zeroPad(val_.getMonth() + 1, 2);
+    var day    = zeroPad(val_.getDate(), 2);
+    var hour   = zeroPad(val_.getHours(), 2);
+    var minute = zeroPad(val_.getMinutes(), 2);
+    var second = zeroPad(val_.getSeconds(), 2);
     var datetime = year + '-' + month + '-' + day + ' ' + hour + ':' + minute + ':' + second;
-    return "'" + datetime + timezone + "'";
+    return "'" + datetime + "'";
 };
 
 if (typeof exports !== 'undefined')
