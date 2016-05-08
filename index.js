@@ -43,15 +43,15 @@ if (!jinst.isJvmCreated()) {
     jinst.setupClasspath([ path.resolve(__dirname, './drivers/h2-latest.jar')]);
 }
 
+
 /**
  * @class
  * @constructor
- * @param {*} options
+ * @param {*|{path:string,database:string,host:string,port:number,user:string,password:string,pool:number}} options
  * @augments DataAdapter
  */
 function H2Adapter(options)
 {
-    this.connectionPool = null;
     /**
      * @private
      * @type {Connection}
@@ -62,33 +62,33 @@ function H2Adapter(options)
         throw new Error("Data adapter options may not be empty.");
     }
 
-    var options_;
-
     this.getOptions = function() {
-        if (typeof options_ !== 'undefined') {
-            return options_;
-        }
+        var result;
         //build URL
         if (typeof options.path === 'string') {
-            options_ = {
+            result = {
                 url : util.format("jdbc:h2:%s;AUTO_SERVER=true;AUTO_RECONNECT=true", options.path),
+                minpoolsize:1,
+                maxpoolsize: typeof options.pool === 'number' ? options.pool : 25,
                 properties : {
                     "user" : options.user,
                     "password": options.password
                 }
             };
-            return options_;
+            return result;
         }
         else if (typeof options.host === 'string') {
             var host_ = options.port ? options.host + ":" + options.port : options.host;
-            options_ = {
+            result = {
                 url : util.format("jdbc:h2:tcp://%s/%s;AUTO_RECONNECT=true", host_, options.database),
+                minpoolsize:1,
+                maxpoolsize: typeof options.pool === 'number' ? options.pool : 25,
                 properties : {
                     "user" : options.user,
                     "password": options.password
                 }
             };
-            return options_;
+            return result;
         }
         else {
             throw new Error("Database path or host may not be empty.");
@@ -112,16 +112,30 @@ H2Adapter.prototype.open = function(callback)
     if (self.rawConnection) {
         return callback();
     }
-    self.connectionPool = new JDBC(self.getOptions());
-    self.connectionPool.initialize(function(err) {
-        if (err) { return callback(err); }
-        self.connectionPool.reserve(function(err, connObj) {
+    H2Adapter.pools = H2Adapter.pools || { };
+    //get connection options
+    var options = this.getOptions(), connectionPool;
+    if (H2Adapter.pools.hasOwnProperty(options.url)) {
+        connectionPool=H2Adapter.pools[options.url];
+        connectionPool.reserve(function(err, connObj) {
             if (err) { return callback(err); }
             self.rawConnection = connObj;
             return callback();
         });
+    }
+    else {
+        connectionPool = new JDBC(self.getOptions());
+        H2Adapter.pools[options.url] = connectionPool;
+        connectionPool.initialize(function(err) {
+            if (err) { return callback(err); }
+            connectionPool.reserve(function(err, connObj) {
+                if (err) { return callback(err); }
+                self.rawConnection = connObj;
+                return callback();
+            });
+        });
+    }
 
-    });
 };
 /**
  * @param {function(Error=)} callback
@@ -132,7 +146,13 @@ H2Adapter.prototype.close = function(callback) {
     if (typeof self.rawConnection === 'undefined' || self.rawConnection == null) {
         return callback();
     }
-    self.connectionPool.release(self.rawConnection, function(err) {
+    H2Adapter.pools = H2Adapter.pools || { };
+    var options = this.getOptions(),
+        connectionPool=H2Adapter.pools[options.url];
+    if (typeof connectionPool === 'undefined' || connectionPool == null) {
+        return callback(new Error("Connection pool may not be empty at this context."))
+    }
+    connectionPool.release(self.rawConnection, function(err) {
         if (err) {
             console.log(err);
         }

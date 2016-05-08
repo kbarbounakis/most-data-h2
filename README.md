@@ -25,7 +25,8 @@ Register H2 adapter on app.json as follows:
                        "host":"localhost",
                        "port":9090,
                        "user":"SA",
-                       "password":""
+                       "password":"",
+                       "pool":100
                    }
                 }
         ...
