@@ -63,6 +63,11 @@ function H2Adapter(options)
 
 }
 
+function getTimezone_() {
+    var offset = (new Date()).getTimezoneOffset();
+       return (offset<=0 ? '+' : '-') + zeroPad(-Math.floor(offset/60),2) + ':' + zeroPad(offset%60,2);
+}
+
 /**
  * Opens database connection
  */
@@ -73,9 +78,6 @@ H2Adapter.prototype.open = function(callback)
     if (self.rawConnection) {
         return callback();
     }
-    //get current timezone
-    var offset = (new Date()).getTimezoneOffset(),
-        timezone = (offset<=0 ? '+' : '-') + zeroPad(-Math.floor(offset/60),2) + ':' + zeroPad(offset%60,2);
     self.connectionPool = new JDBC(self.options);
     self.connectionPool.initialize(function(err) {
         if (err) { return callback(err); }
