@@ -937,25 +937,6 @@ H2Formatter.prototype.$length = function(p0)
     return util.format('LENGTH(%s)', this.escape(p0));
 };
 
-/**
- *
- * @param {QueryExpression} obj
- * @returns {string}
- */
-H2Formatter.prototype.formatLimitSelect = function(obj) {
-
-    var sql=this.formatSelect(obj);
-    if (obj.$take) {
-        if (obj.$skip)
-        //add limit and skip records
-            sql= sql.concat(' LIMIT ', obj.$skip.toString() ,' OFFSET ',obj.$take.toString());
-        else
-        //add only limit
-            sql= sql.concat(' LIMIT ',  obj.$take.toString());
-    }
-    return sql;
-};
-
 H2Formatter.prototype.$day = function(p0) {
     return util.format('DAY_OF_MONTH(%s)', this.escape(p0));
 };
