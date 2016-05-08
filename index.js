@@ -915,16 +915,22 @@ H2Formatter.prototype.escape = function(value,unquoted)
  * @returns {string}
  */
 H2Formatter.prototype.escapeDate = function(val) {
-
-    var val_ = new Date(val.valueOf() + val.getTimezoneOffset() * 60000);
-    var year   = val_.getFullYear();
-    var month  = zeroPad(val_.getMonth() + 1, 2);
-    var day    = zeroPad(val_.getDate(), 2);
-    var hour   = zeroPad(val_.getHours(), 2);
-    var minute = zeroPad(val_.getMinutes(), 2);
-    var second = zeroPad(val_.getSeconds(), 2);
+    /*
+    Important Note
+    H2 database engine uses server timezone while inserting date values.
+    
+    Tip #1: convert date to GMT: new Date(val.valueOf() + val.getTimezoneOffset() * 60000); 
+    */
+    var year   = val.getFullYear();
+    var month  = zeroPad(val.getMonth() + 1, 2);
+    var day    = zeroPad(val.getDate(), 2);
+    var hour   = zeroPad(val.getHours(), 2);
+    var minute = zeroPad(val.getMinutes(), 2);
+    var second = zeroPad(val.getSeconds(), 2);
     var datetime = year + '-' + month + '-' + day + ' ' + hour + ':' + minute + ':' + second;
-    return "'" + datetime + "'";
+    var offset = val.getTimezoneOffset(), 
+        timezone = (offset<=0 ? '+' : '-') + zeroPad(-Math.floor(offset/60),2) + ':' + zeroPad(offset%60,2);
+    return "'" + datetime.concat(timezone) + "'";
 };
 
 /**
