@@ -14,13 +14,20 @@ Register H2 adapter on app.json as follows:
         ...
         { "name":"development", "invariantName":"h2", "default":true,
             "options": {
-               "url": "jdbc:h2:~/test;AUTO_SERVER=true;AUTO_RECONNECT=true",
-               "properties": {
-                   "user" : "sa",
-                   "password": ""
-               }
+               "path":"~/h2/test",
+               "user":"SA",
+               "password":""
            }
-        }
+        },
+        { "name":"server", "invariantName":"h2", "default":false,
+                    "options": {
+                       "database":"test",
+                       "host":"localhost",
+                       "port":9090,
+                       "user":"SA",
+                       "password":""
+                   }
+                }
         ...
     ]
 

@@ -46,6 +46,7 @@ if (!jinst.isJvmCreated()) {
 /**
  * @class
  * @constructor
+ * @param {*} options
  * @augments DataAdapter
  */
 function H2Adapter(options)
@@ -56,10 +57,43 @@ function H2Adapter(options)
      * @type {Connection}
      */
     this.rawConnection = null;
-    /**
-     * @type {*}
-     */
-    this.options = options;
+
+    if (typeof options === 'undefined' || options == null) {
+        throw new Error("Data adapter options may not be empty.");
+    }
+
+    var options_;
+
+    this.getOptions = function() {
+        if (typeof options_ !== 'undefined') {
+            return options_;
+        }
+        //build URL
+        if (typeof options.path === 'string') {
+            options_ = {
+                url : util.format("jdbc:h2:%s;AUTO_SERVER=true;AUTO_RECONNECT=true", options.path),
+                properties : {
+                    "user" : options.user,
+                    "password": options.password
+                }
+            };
+            return options_;
+        }
+        else if (typeof options.host === 'string') {
+            var host_ = options.port ? options.host + ":" + options.port : options.host;
+            options_ = {
+                url : util.format("jdbc:h2:tcp://%s/%s;AUTO_RECONNECT=true", host_, options.database),
+                properties : {
+                    "user" : options.user,
+                    "password": options.password
+                }
+            };
+            return options_;
+        }
+        else {
+            throw new Error("Database path or host may not be empty.");
+        }
+    }
 
 }
 
@@ -78,7 +112,7 @@ H2Adapter.prototype.open = function(callback)
     if (self.rawConnection) {
         return callback();
     }
-    self.connectionPool = new JDBC(self.options);
+    self.connectionPool = new JDBC(self.getOptions());
     self.connectionPool.initialize(function(err) {
         if (err) { return callback(err); }
         self.connectionPool.reserve(function(err, connObj) {
