@@ -96,10 +96,24 @@ function H2Adapter(options)
     }
 
 }
-
+/**
+ * @returns {string}
+ * @private
+ */
 function getTimezone_() {
     var offset = (new Date()).getTimezoneOffset();
        return (offset<=0 ? '+' : '-') + zeroPad(-Math.floor(offset/60),2) + ':' + zeroPad(offset%60,2);
+}
+/**
+ *
+ * @param {Function} callback
+ * @private
+ */
+function getDatabaseTimezone_(callback) {
+    return this.execute('SELECT FORMATDATETIME(CURRENT_TIMESTAMP(),\'XXX\') as "timezone"', null, function (err, result) {
+        if (err) { return callback(err); }
+        return callback(null, result[0]["timezone"]);
+    });
 }
 
 /**
@@ -950,6 +964,22 @@ H2Formatter.prototype.$day = function(p0) {
 H2Formatter.prototype.$date = function(p0) {
     return util.format('CASE(%s AS DATE)', this.escape(p0));
 };
+
+H2Formatter.prototype.$mod = function(p0, p1)
+{
+    //validate params
+    if (Object.isNullOrUndefined(p0) || Object.isNullOrUndefined(p1))
+        return '0';
+    return util.format('MOD(%s,%s)', this.escape(p0), this.escape(p1));
+};
+
+H2Formatter.prototype.$bit = function(p0, p1)
+{
+    //validate params
+    if (Object.isNullOrUndefined(p0) || Object.isNullOrUndefined(p1))
+        return '0';
+    return util.format('BITAND(%s,%s)', this.escape(p0), this.escape(p1));
+}
 
 if (typeof exports !== 'undefined')
 {
