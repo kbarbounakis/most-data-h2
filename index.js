@@ -962,7 +962,7 @@ H2Formatter.prototype.$day = function(p0) {
 };
 
 H2Formatter.prototype.$date = function(p0) {
-    return util.format('CASE(%s AS DATE)', this.escape(p0));
+    return util.format('CAST(%s AS DATE)', this.escape(p0));
 };
 
 H2Formatter.prototype.$mod = function(p0, p1)
