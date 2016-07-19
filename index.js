@@ -464,8 +464,10 @@ H2Adapter.formatType = function(field)
             s = 'TIME';
             break;
         case 'Integer':
-        case 'Duration':
             s = 'INTEGER';
+            break;
+        case 'Duration':
+            s = size>0 ?  util.format('VARCHAR(%s)', size) : 'VARCHAR(36)';
             break;
         case 'BigInteger':
             s = 'BIGINT';
