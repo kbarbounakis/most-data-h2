@@ -753,7 +753,7 @@ H2Adapter.prototype.table = function(name) {
             var strTable = formatter.escapeName(name);
             //generate SQL statement
             var sql = fields.map(function(x) {
-                return H2Adapter.format('ALTER TABLE "' + strTable + '" ADD "%f" %t', x);
+                return H2Adapter.format('ALTER TABLE ' + strTable + ' ADD "%f" %t', x);
             }).join(';');
             self.execute(sql, [], function(err) {
                 callback(err);
@@ -780,7 +780,7 @@ H2Adapter.prototype.table = function(name) {
             var strTable = formatter.escapeName(name);
             //generate SQL statement
             var sql = fields.map(function(x) {
-                return H2Adapter.format('ALTER TABLE "' + strTable + '" ALTER COLUMN "%f" %t', x);
+                return H2Adapter.format('ALTER TABLE ' + strTable + ' ALTER COLUMN "%f" %t', x);
             }).join(';');
             self.execute(sql, [], function(err) {
                 callback(err);
