@@ -1,6 +1,6 @@
 {
   "name": "most-data-h2",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "MOST Web Framework H2 Data Adapter",
   "main": "index.js",
   "scripts": {
