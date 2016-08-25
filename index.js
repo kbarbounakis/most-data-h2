@@ -634,6 +634,57 @@ H2Adapter.prototype.migrate = function(obj, callback) {
                     else {
                         cb(new Error('Invalid migration data.'));
                     }
+                },
+                //Apply data model foreign keys
+                function (arg, cb) {
+                    if (arg<=0) { return cb(null, arg); }
+                    if (migration.constraints) {
+                        var tableForeignKeys = self.foreignKeys(migration.appliesTo);
+                        //enumerate migration constraints
+                        async.eachSeries(migration.constraints, function(constraint, constraintCallback) {
+                            //if constraint is a foreign key constraint
+                            if (constraint.type === 'foreignKey') {
+                                //create table foreign key
+                                return tableForeignKeys.create(constraint.foreignKeyField,
+                                    constraint.primaryKeyTable,
+                                    constraint.primaryKeyField,
+                                    constraintCallback);
+                            }
+                            else {
+                                //else do nothing
+                                return constraintCallback();
+                            }
+                        }, function(err) {
+                            //throw error
+                            if (err) { return cb(err); }
+                            //or return success flag
+                            return cb(null, 1);
+                        });
+                    }
+                    else {
+                        //do nothing and exit
+                        return cb();
+                    }
+                },
+                //Apply data model indexes
+                function (arg, cb) {
+                    if (arg<=0) { return cb(null, arg); }
+                    if (migration.indexes) {
+                        var tableIndexes = self.indexes(migration.appliesTo);
+                        //enumerate migration constraints
+                        async.eachSeries(migration.indexes, function(index, indexCallback) {
+                            tableIndexes.create(index.name, index.columns, indexCallback);
+                        }, function(err) {
+                            //throw error
+                            if (err) { return cb(err); }
+                            //or return success flag
+                            return cb(null, 1);
+                        });
+                    }
+                    else {
+                        //do nothing and exit
+                        return cb();
+                    }
                 }, function(arg, cb) {
                     if (arg>0) {
                         //log migration to database
@@ -865,6 +916,172 @@ H2Adapter.prototype.view = function(name) {
     };
 };
 
+H2Adapter.prototype.indexes = function(table) {
+  var self = this, formatter = new H2Formatter();
+    return {
+        list: function (callback) {
+            self.execute('SELECT INDEX_NAME as "indexName", TABLE_NAME as "tableName", COLUMN_NAME as "columnName" FROM "INFORMATION_SCHEMA".INDEXES ' +
+                'WHERE TABLE_NAME=? AND TABLE_SCHEMA=? AND INDEX_TYPE_NAME=\'INDEX\'', [ table, 'PUBLIC'] , function (err, result) {
+                if (err) { return callback(err); }
+                var indexes = [];
+                result.forEach(function(x) {
+                   var ix = indexes.find(function(y) {
+                      return y.name === x.indexName;
+                   });
+                    if (ix) {
+                        ix.columns.push(x.columnName);
+                    }
+                    else {
+                        indexes.push({
+                            name:x.indexName,
+                            columns: [ x.columnName ]
+                        })
+                    }
+                });
+                return callback(null, indexes);
+            });
+        },
+        /**
+         * @param {string} name
+         * @param {Array|string} columns
+         * @param {Function} callback
+         */
+        create: function(name, columns, callback) {
+            var cols = [];
+            if (typeof columns === 'string') {
+                cols.push(columns)
+            }
+            else if (util.isArray(columns)) {
+                cols.push.apply(cols, columns);
+            }
+            else {
+                return callback(new Error("Invalid parameter. Columns parameter must be a string or an array of strings."));
+            }
+
+            this.list(function(err, indexes) {
+               if (err) { return callback(err); }
+               var ix = indexes.find(function(x) { return x.name === name; });
+                //format create index SQL statement
+                var sqlCreateIndex = util.format("CREATE INDEX %s ON %s(%s)",
+                    formatter.escapeName(name),
+                    formatter.escapeName(table),
+                    cols.map(function(x) {
+                        return formatter.escapeName(x)
+                    }).join(","));
+                if (typeof ix === 'undefined' || ix == null) {
+                    self.execute(sqlCreateIndex, [], callback);
+                }
+                else {
+                    var nCols = cols.length;
+                    //enumerate existing columns
+                    ix.columns.forEach(function(x) {
+                        if (cols.indexOf(x)>=0) {
+                            //column exists in index
+                            nCols -= 1;
+                        }
+                    });
+                    if (nCols>0) {
+                        //drop index
+                        this.drop(name, function(err) {
+                           if (err) { return callback(err); }
+                           //and create it
+                            self.execute(sqlCreateIndex, [], callback);
+                        });
+                    }
+                    else {
+                        //do nothing
+                        return callback();
+                    }
+                }
+            });
+
+
+        },
+        drop: function(name, callback) {
+            if (typeof name !== 'string') {
+                return callback(new Error("Name must be a valid string."))
+            }
+            self.execute('SELECT COUNT(*) as "count" FROM "INFORMATION_SCHEMA".INDEXES WHERE  TABLE_NAME=? AND TABLE_SCHEMA=? AND INDEX_NAME=?', [ table, 'PUBLIC', name ], function(err, result) {
+                if (err) { return callback(err); }
+                var exists = (result.length>0) && (result[0].count>0);
+                if (!exists) {
+                    return callback();
+                }
+                self.execute(util.format("DROP INDEX %s", self.escapeName(name)), [], callback);
+            });
+        }
+    }
+};
+
+H2Adapter.prototype.foreignKeys = function(table) {
+  var self = this;
+    return {
+        /**
+         * Gets the collection of the foreign keys associated with the given table
+         * @param callback
+         */
+        list:function (callback) {
+            self.execute('SELECT FK_NAME as "foreignKeyName" ,PKTABLE_NAME as "primaryKeyTable",PKCOLUMN_NAME as "primaryKeyColumn", ' +
+                'FKTABLE_NAME as "foreignKeyTable",FKCOLUMN_NAME as "foreignKeyColumn" ' +
+                'FROM "INFORMATION_SCHEMA".CROSS_REFERENCES WHERE FKTABLE_NAME=? AND FKTABLE_SCHEMA=?', [ table, "PUBLIC" ], function(err, result) {
+                if (err) {
+                    return callback(err);
+                }
+                return callback(null, result);
+            });
+        },
+        /**
+         * Creates a foreign key association between two tables
+         * @param {string} foreignKeyColumn
+         * @param {string} primaryKeyTable
+         * @param {string} primaryKeyColumn
+         * @param {Function} callback
+         */
+        create:function(foreignKeyColumn, primaryKeyTable, primaryKeyColumn, callback) {
+            self.execute('SELECT COUNT(*) as "count" FROM "INFORMATION_SCHEMA".CROSS_REFERENCES ' +
+                'WHERE FKTABLE_NAME=? AND FKTABLE_SCHEMA=? AND FKCOLUMN_NAME=? AND PKTABLE_NAME=? AND PKCOLUMN_NAME=?',
+                [ table, "PUBLIC", foreignKeyColumn, primaryKeyTable, primaryKeyColumn ], function(err, result) {
+                if (err) {
+                    return callback(err);
+                }
+                //if foreign key already exists
+                if (result[0] && result[0].count>0) {
+                    return callback();
+                }
+                var sql = util.format('ALTER TABLE "%s" ADD FOREIGN KEY ("%s") REFERENCES "%s"("%s")', table, foreignKeyColumn, primaryKeyTable, primaryKeyColumn);
+                self.execute(sql, [], function(err) {
+                    return callback(err);
+                });
+            });
+        },
+        /**
+         * Drops a foreign key association between two tables
+         * @param {string} foreignKeyColumn
+         * @param {string} primaryKeyTable
+         * @param {string} primaryKeyColumn
+         * @param {Function} callback
+         */
+        drop:function(foreignKeyColumn, primaryKeyTable, primaryKeyColumn, callback) {
+            self.execute('SELECT FK_NAME as "foreignKeyName" FROM "INFORMATION_SCHEMA".CROSS_REFERENCES ' +
+                'WHERE FKTABLE_NAME=? AND FKTABLE_SCHEMA=? AND FKCOLUMN_NAME=? AND PKTABLE_NAME=? AND PKCOLUMN_NAME=?',
+                [ table, "PUBLIC", foreignKeyColumn, primaryKeyTable, primaryKeyColumn ], function(err, result) {
+                    if (err) {
+                        return callback(err);
+                    }
+                    if (result[0]) {
+                        var sql = util.format('ALTER TABLE "%s" DROP CONSTRAINT "%s";', table, result[0].foreignKeyName);
+                        self.execute(sql, [], function(err) {
+                            return callback(err);
+                        });
+                    }
+                    else {
+                        return callback();
+                    }
+                });
+        }
+    }
+};
+
 function zeroPad(number, length) {
     number = number || 0;
     var res = number.toString();
@@ -986,13 +1203,7 @@ H2Formatter.prototype.$bit = function(p0, p1)
 if (typeof exports !== 'undefined')
 {
     module.exports = {
-        /**
-         * @constructs H2Formatter
-         * */
         H2Formatter : H2Formatter,
-        /**
-         * @constructs H2Adapter
-         * */
         H2Adapter : H2Adapter,
         /**
          * Creates an instance of H2Adapter object that represents a MySql database connection.
