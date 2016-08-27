@@ -663,7 +663,7 @@ H2Adapter.prototype.migrate = function(obj, callback) {
                     }
                     else {
                         //do nothing and exit
-                        return cb();
+                        return cb(null, 1);
                     }
                 },
                 //Apply data model indexes
@@ -683,7 +683,7 @@ H2Adapter.prototype.migrate = function(obj, callback) {
                     }
                     else {
                         //do nothing and exit
-                        return cb();
+                        return cb(null, 1);
                     }
                 }, function(arg, cb) {
                     if (arg>0) {
