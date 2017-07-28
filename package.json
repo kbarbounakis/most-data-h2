@@ -1,6 +1,6 @@
 {
   "name": "most-data-h2",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "MOST Web Framework H2 Data Adapter",
   "main": "index.js",
   "scripts": {
@@ -27,6 +27,6 @@
   "dependencies": {
     "async": "^1.4.2",
     "most-query": "~0.1.21",
-    "jdbc": "^0.3.0"
+    "jdbc": "^0.4.0"
   }
 }
